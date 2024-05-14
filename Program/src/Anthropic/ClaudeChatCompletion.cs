@@ -11,6 +11,7 @@ namespace GlobalNameSpace;
 
 public class ClaudeChatCompletion : IAiResponse
 {
+    // https://docs.anthropic.com/en/api/messages
     public ChatMessage GetMessage() => new(Role, Content[0].Text);
     public string GetId() => Id;
     public string GetModel() => Model;

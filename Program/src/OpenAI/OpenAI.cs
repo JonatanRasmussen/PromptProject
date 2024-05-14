@@ -13,6 +13,7 @@ public static class OpenAI
 {
     private class ChatGPTApiAccess : IApiAccess
     {
+        // https://platform.openai.com/docs/api-reference/chat
         public string Endpoint { get; } = "https://api.openai.com/v1/chat/completions";
         public string ApiKey { get; } = MyLocalConfigs.ApiKeyOpenAI;
         public ChatRoles ChatRoles { get; } = new("user", "assistant", "system");
