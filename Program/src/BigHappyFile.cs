@@ -154,7 +154,7 @@ public static class ApiAccessUtils
         return aiResponse;
     }
 
-    public static string FormatJsonRequest(AiRequest req)
+    private static string FormatJsonRequest(AiRequest req)
     {
         var requestBody = new
         {
