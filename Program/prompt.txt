@@ -1,2 +1,1 @@
-Simplify the following C# Code snippet:
-public string? GetTimeCreated() => (DateTime.UtcNow - new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalSeconds.ToString();
+Hey this is a test.

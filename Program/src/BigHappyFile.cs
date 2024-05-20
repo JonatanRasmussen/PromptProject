@@ -173,7 +173,7 @@ public class AiRequest(IAiModel model)
     public IAiModel Model{ get; set; } = model;
     public List<ChatMessage> Messages { get; set; } = [];
     public bool Stream { get; set; } = false;
-    public int MaxOutputTokens { get; set; } = 1024;
+    public int MaxOutputTokens { get; set; } = 3072;
     public double Temperature { get; set; } = 1.0;
 
     public void AddUserMessage(string content)
