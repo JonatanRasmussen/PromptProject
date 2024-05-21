@@ -1,12 +1,5 @@
-// This following is the content of file: BigHappyFile.cs
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Net.Http;
 using System.Text;
 using System.Text.Json;
-using System.Text.Json.Serialization;
-using System.Threading.Tasks;
 namespace GlobalNameSpace;
 
 public class PromptManager
@@ -33,22 +26,22 @@ public class PromptManager
 
 public static class Utils
 {
-    public static string FilePath(string fileNameAndExtension)
+    public static string AppendFilePath(string fileNameAndExtension)
     {
-        string currentDirectory = MyLocalConfigs.DirectoryFullPath;
+        string currentDirectory = MyLocalConfigs.AbsolutePath;
         return Path.Combine(currentDirectory, fileNameAndExtension);
     }
 
     public static string ReadFile(string fileNameAndExtension)
     {
-        string filePath = FilePath(fileNameAndExtension);
+        string filePath = AppendFilePath(fileNameAndExtension);
         using StreamReader reader = new(filePath);
         return reader.ReadToEnd();
     }
 
     public static void WriteFile(string fileNameAndExtension, string content)
     {
-        string filePath = FilePath(fileNameAndExtension);
+        string filePath = AppendFilePath(fileNameAndExtension);
         using StreamWriter writer = new(filePath);
         writer.Write(content);
     }
@@ -174,7 +167,7 @@ public class AiRequest(IAiModel model)
     public List<ChatMessage> Messages { get; set; } = [];
     public bool Stream { get; set; } = false;
     public int MaxOutputTokens { get; set; } = 3072;
-    public double Temperature { get; set; } = 1.0;
+    public double Temperature { get; set; } = 0.8;
 
     public void AddUserMessage(string content)
     {

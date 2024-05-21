@@ -1,12 +1,4 @@
-// This following is the content of file: ClaudeChatCompletion.cs
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Net.Http;
-using System.Text;
-using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Threading.Tasks;
 namespace GlobalNameSpace;
 
 public class ClaudeChatCompletion : IAiResponse

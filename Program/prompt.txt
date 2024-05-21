@@ -1,1 +1,117 @@
-Hey this is a test.
+In the following code, make the FullPath property of LocalDirectory non-static. If the path parameter in         public static LocalDirectory LoadFromDisk(string path, LocalDirectory? parent) can be removed due to the non-static fullPath, do it.
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Text;
+
+namespace GlobalNameSpace
+{
+    public class LocalFile(string name, string content)
+    {
+        public string Name { get; set; } = name;
+        public string Content { get; set; } = content;
+    }
+
+    public class LocalDirectory(string name, LocalDirectory? parent)
+    {
+        public static string FullPath { get; set; } = MyLocalConfigs.DirectoryFullPath;
+
+        public string Name { get; set; } = name;
+        public LocalDirectory? Parent { get; set; } = parent;
+        public List<LocalDirectory> SubDirectories { get; set; } = [];
+        public List<LocalFile> Files { get; set; } = [];
+
+        public static LocalDirectory LoadFromDisk(string path, LocalDirectory? parent)
+        {
+            LocalDirectory directory = new (Path.GetFileName(path), parent);
+            try
+            {
+                foreach (var file in Directory.GetFiles(path))
+                {
+                    string fileName = Path.GetFileName(file);
+                    string fileContent = File.ReadAllText(file);
+                    LocalFile localFile = new(fileName, fileContent);
+                    directory.Files.Add(localFile);
+                }
+
+                foreach (var dir in Directory.GetDirectories(path))
+                {
+                    directory.SubDirectories.Add(LoadFromDisk(dir, directory));
+                }
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                Console.WriteLine($"Access denied to {path}: {ex.Message}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error reading directory {path}: {ex.Message}");
+            }
+
+            return directory;
+        }
+
+        public List<LocalFile> GetFilesAsList()
+        {
+            List<LocalFile> allFiles = [];
+            GetFiles(allFiles);
+            return allFiles;
+        }
+
+        private void GetFiles(List<LocalFile> fileList)
+        {
+            fileList.AddRange(Files);
+            foreach (var subDir in SubDirectories)
+            {
+                subDir.GetFiles(fileList);
+            }
+        }
+
+        public string DirContentToString()
+        {
+            StringBuilder sb = new();
+            AppendContent(sb);
+            return sb.ToString();
+        }
+
+        private void AppendContent(StringBuilder sb)
+        {
+            foreach (var file in Files)
+            {
+                sb.Append(file.Content);
+            }
+
+            foreach (var subDir in SubDirectories)
+            {
+                subDir.AppendContent(sb);
+            }
+        }
+    }
+
+    public class ExampleProgram
+    {
+        public static void ExampleMain(string[] args)
+        {
+            try
+            {
+                // Load the directory structure from disk
+                var root = LocalDirectory.LoadFromDisk(MyLocalConfigs.DirectoryFullPath, null);
+
+                // Displaying all files in the root directory (including subdirectories)
+                List<LocalFile> allFiles = root.GetFilesAsList();
+                foreach (var file in allFiles)
+                {
+                    Console.WriteLine($"{file.Name}: {file.Content}");
+                }
+
+                // Displaying concatenated content
+                Console.WriteLine("Concatenated Content:");
+                Console.WriteLine(root.DirContentToString());
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"An error occurred: {ex.Message}");
+            }
+        }
+    }
+}
