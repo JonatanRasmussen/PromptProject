@@ -20,9 +20,9 @@ public class LocalDirectory(string name, string fullPath, LocalDirectory? parent
 
     public static LocalDirectory CreateWithSrcFolderAsRoot()
     {
-        string name = MyLocalConfigs.SrcFolderName;
-        string path = MyLocalConfigs.SrcFolderPath;
         LocalDirectory? parent = null;
+        string path = ProgramPaths.Src;
+        string name = Path.GetDirectoryName(path) ?? "BudoMissing";
         LocalDirectory srcDir = new(name, path, parent);
         srcDir.LoadContent();
         return srcDir;

@@ -4,45 +4,89 @@ namespace GlobalNameSpace;
 
 public class PromptManager
 {
-    public static void ExecutePrompt(IAiModel aiModel)
+    public static void ExecutePromptPipeline(IAiModel aiModel)
     {
-        string prompt = Utils.ReadFile(MyLocalConfigs.InputFullFileName);
-        AiRequest chatCompletion = new(aiModel);
-        chatCompletion.AddUserMessage(prompt);
+        long promptNumber = GeneratePromptNumber();
+        string prompt = LoadPrompt();
+        SaveCopyOfPrompt(promptNumber, prompt);
+        AiRequest request = PreparePrompt(aiModel, prompt);
+        IAiResponse response = SubmitPrompt(aiModel, request);
+        SaveResponse(promptNumber, response);
+        PrintCost(aiModel, response);
+    }
+
+    private static long GeneratePromptNumber()
+    {
+        // Newer prompts should appear at the top when sorted alphabetically
+        // This is because my VSCode config just so happens to be setup this way
+        DateTimeOffset currentTime = DateTimeOffset.UtcNow;
+        long epochTimeSeconds = currentTime.ToUnixTimeSeconds();
+        long numberToCountDownFrom = 10_000_000_000;
+        return numberToCountDownFrom - epochTimeSeconds;
+    }
+
+    private static string LoadPrompt()
+    {
+        return Utils.ReadFile(ProgramPaths.Prompt, ProgramFiles.Prompt);
+    }
+
+    private static void SaveCopyOfPrompt(long promptNumber, string prompt)
+    {
+        string nameAndExt = ProgramFiles.FormatInputName(promptNumber);
+        Utils.WriteFile(ProgramPaths.Archive, nameAndExt, prompt);
+    }
+
+    private static AiRequest PreparePrompt(IAiModel aiModel, string prompt)
+    {
+        AiRequest aiRequest = new(aiModel);
+        aiRequest.AddUserMessage(prompt);
+        return aiRequest;
+    }
+
+    private static IAiResponse SubmitPrompt(IAiModel aiModel, AiRequest request)
+    {
         try
         {
-            IAiResponse aiResponse = aiModel.ApiAccess.RequestChatCompletion(chatCompletion);
-            Console.WriteLine(aiResponse.GetMessage().Content);
-            Utils.WriteFile(MyLocalConfigs.OutputFullFileName, aiResponse.GetMessage().Content);
-            string totalCost = PromptCostCalculator.GetCost(aiModel, aiResponse.GetInputTokens(), aiResponse.GetOutputTokens());
-            Console.WriteLine(totalCost);
+            IAiResponse response = aiModel.ApiAccess.RequestChatCompletion(request);
+            //string response = aiResponse.GetMessage().Content;
+            return response;
         }
         catch (Exception ex)
         {
             Console.WriteLine("BudoError: " + ex.Message);
+            return new AiErrorResponse(ex.Message);
         }
+    }
+
+    private static void SaveResponse(long promptNumber, IAiResponse response)
+    {
+        string completion = response.GetMessage().Content;
+        string nameAndExt = ProgramFiles.FormatOutputName(promptNumber);
+        Utils.WriteFile(ProgramPaths.Archive, nameAndExt, completion);
+    }
+
+    private static void PrintCost(IAiModel aiModel, IAiResponse response)
+    {
+        int inputTokens = response.GetInputTokens();
+        int outputTokens = response.GetOutputTokens();
+        string totalCost = PromptCostCalculator.GetCost(aiModel, inputTokens, outputTokens);
+        Console.WriteLine(totalCost);
     }
 }
 
 public static class Utils
 {
-    public static string AppendFilePath(string fileNameAndExtension)
+    public static string ReadFile(string filePath, string fileNameAndExt)
     {
-        string currentDirectory = MyLocalConfigs.AbsolutePath;
-        return Path.Combine(currentDirectory, fileNameAndExtension);
-    }
-
-    public static string ReadFile(string fileNameAndExtension)
-    {
-        string filePath = AppendFilePath(fileNameAndExtension);
-        using StreamReader reader = new(filePath);
+        string file = Path.Combine(filePath, fileNameAndExt);
+        using StreamReader reader = new(file);
         return reader.ReadToEnd();
     }
 
-    public static void WriteFile(string fileNameAndExtension, string content)
+    public static void WriteFile(string filePath, string fileNameAndExt, string content)
     {
-        string filePath = AppendFilePath(fileNameAndExtension);
-        using StreamWriter writer = new(filePath);
+        string file = Path.Combine(filePath, fileNameAndExt);
+        using StreamWriter writer = new(file);
         writer.Write(content);
     }
 }
@@ -166,34 +210,45 @@ public class AiRequest(IAiModel model)
     public IAiModel Model{ get; set; } = model;
     public List<ChatMessage> Messages { get; set; } = [];
     public bool Stream { get; set; } = false;
-    public int MaxOutputTokens { get; set; } = 3072;
+    public int MaxOutputTokens { get; set; } = model.MaxOutputTokens;
     public double Temperature { get; set; } = 0.8;
+
+    public void LoadTwoWayConversation(List<string> messages)
+    {
+        for (int i = 0; i < messages.Count; i++)
+        {
+            if (i % 2 == 0)
+            {
+                AddUserMessage(messages[i]);
+            }
+            else
+            {
+                AddAssistantMessage(messages[i]);
+            }
+        }
+    }
 
     public void AddUserMessage(string content)
     {
-        string user = Model.ApiAccess.ChatRoles.UserRole;
-        Messages.Add(new ChatMessage(user, content));
+        string userRole = Model.ApiAccess.ChatRoles.UserRole;
+        Messages.Add(new ChatMessage(userRole, content));
+    }
+
+    public void AddAssistantMessage(string content)
+    {
+        string assistantRole = Model.ApiAccess.ChatRoles.AssistantRole;
+        Messages.Add(new ChatMessage(assistantRole, content));
     }
 
     public List<object> MessagesToJsonObject()
     {
         var jsonMessages = new List<object>();
-        foreach (var message in Messages)
+        foreach (ChatMessage message in Messages)
         {
             jsonMessages.Add(message.ToJsonObject());
         }
         return jsonMessages;
     }
-}
-
-public interface IAiRequest
-{
-    string ModelName { get; set; }
-    public List<ChatMessage> Messages { get; set; }
-    public bool Stream { get; set; }
-    public string[]? StopSequence { get; set; }
-    public int MaxOutputTokens { get; set; }
-    public double Temperature { get; set; }
 }
 
 public interface IAiResponse
@@ -206,6 +261,18 @@ public interface IAiResponse
     string GetTimeCreated();
     int GetInputTokens();
     int GetOutputTokens();
+}
+
+public class AiErrorResponse(string errorMsg) : IAiResponse
+{
+    public ChatMessage GetMessage() => new("Error", errorMsg);
+    public string GetId() => string.Empty;
+    public string GetModel() => string.Empty;
+    public string GetRequestType() => string.Empty;
+    public string GetStopReason() => string.Empty;
+    public string GetTimeCreated() => string.Empty;
+    public int GetInputTokens() => 0;
+    public int GetOutputTokens() => 0;
 }
 
 public class ChatMessage(string role, string content)
@@ -222,5 +289,3 @@ public class ChatMessage(string role, string content)
         };
     }
 }
-
-

@@ -1,147 +1,130 @@
-To make the `FullPath` property non-static and remove the unnecessary `path` parameter from the `LoadFromDisk` method, you need to follow these steps:
+To serialize and deserialize the `AiRequest` class along with its properties like `Messages`, `MaxOutputTokens`, and `Temperature`, you can leverage JSON serialization libraries such as `System.Text.Json`. However, since `AiRequest` contains an instance of `IAiModel`, which is an interface, you will need to handle the polymorphic serialization and deserialization.
 
-1. Update the `FullPath` property to be non-static and move its initialization to the instance constructor.
-2. Change the `LoadFromDisk` method to be non-static so it can use the instance’s `FullPath` property.
-3. Remove the `path` parameter from the `LoadFromDisk` method as it is now unnecessary.
-4. Update the method calls and usages accordingly.
+Here's how you can achieve this by using a custom converter:
 
-Here is the updated code with these changes:
+### Step 1: Define a concrete implementation of `IAiModel`
+
+Create a concrete class that implements `IAiModel` and possibly other related interfaces:
 
 ```csharp
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Text;
-
-namespace GlobalNameSpace
+public class AiModel : IAiModel
 {
-    public class LocalFile
+    public string ModelName { get; set; }
+    public string DisplayName { get; set; }
+    public IApiAccess ApiAccess { get; set; }
+    public int ContextWindow { get; set; }
+    public int MaxOutputTokens { get; set; }
+    public double InputPricePerMTokensInUSD { get; set; }
+    public double OutputPricePerMTokensInUSD { get; set; }
+    public DateTime TrainingCutoff { get; set; }
+}
+```
+
+### Step 2: Implement a custom JSON converter for `AiRequest`
+
+Create a custom JSON converter to handle the serialization and deserialization of `AiRequest`:
+
+```csharp
+public class AiRequestJsonConverter : JsonConverter<AiRequest>
+{
+    public override AiRequest Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
-        public LocalFile(string name, string content)
+        using (JsonDocument doc = JsonDocument.ParseValue(ref reader))
         {
-            Name = name;
-            Content = content;
-        }
+            JsonElement root = doc.RootElement;
 
-        public string Name { get; set; }
-        public string Content { get; set; }
-    }
-
-    public class LocalDirectory
-    {
-        public LocalDirectory(string name, LocalDirectory? parent)
-        {
-            Name = name;
-            Parent = parent;
-            FullPath = parent == null ? MyLocalConfigs.DirectoryFullPath : Path.Combine(parent.FullPath, name);
-            SubDirectories = new List<LocalDirectory>();
-            Files = new List<LocalFile>();
-        }
-
-        public string FullPath { get; set; }
-        public string Name { get; set; }
-        public LocalDirectory? Parent { get; set; }
-        public List<LocalDirectory> SubDirectories { get; set; }
-        public List<LocalFile> Files { get; set; }
-
-        public void LoadFromDisk()
-        {
-            try
+            var model = JsonSerializer.Deserialize<AiModel>(root.GetProperty("Model").GetRawText(), options);
+            var request = new AiRequest(model)
             {
-                foreach (var file in Directory.GetFiles(FullPath))
-                {
-                    string fileName = Path.GetFileName(file);
-                    string fileContent = File.ReadAllText(file);
-                    LocalFile localFile = new(fileName, fileContent);
-                    Files.Add(localFile);
-                }
+                MaxOutputTokens = root.GetProperty("MaxOutputTokens").GetInt32(),
+                Temperature = root.GetProperty("Temperature").GetDouble(),
+                Stream = root.GetProperty("Stream").GetBoolean(),
+                Messages = JsonSerializer.Deserialize<List<ChatMessage>>(root.GetProperty("Messages").GetRawText(), options)
+            };
 
-                foreach (var dir in Directory.GetDirectories(FullPath))
-                {
-                    LocalDirectory subDir = new(Path.GetFileName(dir), this);
-                    subDir.LoadFromDisk();
-                    SubDirectories.Add(subDir);
-                }
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                Console.WriteLine($"Access denied to {FullPath}: {ex.Message}");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error reading directory {FullPath}: {ex.Message}");
-            }
-        }
-
-        public List<LocalFile> GetFilesAsList()
-        {
-            List<LocalFile> allFiles = new();
-            GetFiles(allFiles);
-            return allFiles;
-        }
-
-        private void GetFiles(List<LocalFile> fileList)
-        {
-            fileList.AddRange(Files);
-            foreach (var subDir in SubDirectories)
-            {
-                subDir.GetFiles(fileList);
-            }
-        }
-
-        public string DirContentToString()
-        {
-            StringBuilder sb = new();
-            AppendContent(sb);
-            return sb.ToString();
-        }
-
-        private void AppendContent(StringBuilder sb)
-        {
-            foreach (var file in Files)
-            {
-                sb.Append(file.Content);
-            }
-
-            foreach (var subDir in SubDirectories)
-            {
-                subDir.AppendContent(sb);
-            }
+            return request;
         }
     }
 
-    public class ExampleProgram
+    public override void Write(Utf8JsonWriter writer, AiRequest value, JsonSerializerOptions options)
     {
-        public static void ExampleMain(string[] args)
-        {
-            try
-            {
-                // Load the directory structure from disk
-                LocalDirectory root = new(LocalDirectory.MyLocalConfigs.DirectoryFullPath, null);
-                root.LoadFromDisk();
+        writer.WriteStartObject();
 
-                // Displaying all files in the root directory (including subdirectories)
-                List<LocalFile> allFiles = root.GetFilesAsList();
-                foreach (var file in allFiles)
-                {
-                    Console.WriteLine($"{file.Name}: {file.Content}");
-                }
+        writer.WritePropertyName("Model");
+        JsonSerializer.Serialize(writer, value.Model, options);
+        
+        writer.WritePropertyName("MaxOutputTokens");
+        writer.WriteNumberValue(value.MaxOutputTokens);
+        
+        writer.WritePropertyName("Temperature");
+        writer.WriteNumberValue(value.Temperature);
+        
+        writer.WritePropertyName("Stream");
+        writer.WriteBooleanValue(value.Stream);
+        
+        writer.WritePropertyName("Messages");
+        JsonSerializer.Serialize(writer, value.Messages, options);
 
-                // Displaying concatenated content
-                Console.WriteLine("Concatenated Content:");
-                Console.WriteLine(root.DirContentToString());
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"An error occurred: {ex.Message}");
-            }
-        }
+        writer.WriteEndObject();
     }
 }
 ```
 
-In this updated code:
+### Step 3: Configure the serialization options
 
-- The `FullPath` property is now an instance property and is initialized in the constructor.
-- The `LoadFromDisk` method is now an instance method and uses `FullPath` directly.
-- The `ExampleMain` method has been updated to reflect the changes and now creates a `LocalDirectory` object and calls `LoadFromDisk` on it.
+You need to configure the serializer options to use the custom converter:
+
+```csharp
+var options = new JsonSerializerOptions
+{
+    Converters = { new AiRequestJsonConverter() },
+    WriteIndented = true // Optional: for pretty-printing
+};
+```
+
+### Step 4: Serialize and Deserialize
+
+Now, you can serialize and deserialize `AiRequest` as follows:
+
+```csharp
+// Create an instance of AiRequest for testing
+var aiRequest = new AiRequest(new AiModel
+{
+    ModelName = "TestModel",
+    DisplayName = "Test Model",
+    ApiAccess = new ApiAccess
+    {
+        Endpoint = "https://api.example.com",
+        ApiKey = "API_KEY",
+        ChatRoles = new ChatRoles("user", "assistant", "system")
+    },
+    ContextWindow = 2048,
+    MaxOutputTokens = 100,
+    InputPricePerMTokensInUSD = 0.01,
+    OutputPricePerMTokensInUSD = 0.02,
+    TrainingCutoff = DateTime.UtcNow
+})
+{
+    Messages = new List<ChatMessage>
+    {
+        new ChatMessage("user", "Hello"),
+        new ChatMessage("assistant", "Hi, how can I help you?")
+    },
+    MaxOutputTokens = 50,
+    Temperature = 0.7,
+    Stream = false
+};
+
+// Serialize
+string jsonString = JsonSerializer.Serialize(aiRequest, options);
+Console.WriteLine("Serialized JSON:");
+Console.WriteLine(jsonString);
+
+// Deserialize
+AiRequest deserializedRequest = JsonSerializer.Deserialize<AiRequest>(jsonString, options);
+Console.WriteLine("Deserialized AiRequest:");
+Console.WriteLine($"Model Name: {deserializedRequest.Model.ModelName}");
+Console.WriteLine($"Messages: {string.Join(", ", deserializedRequest.Messages.Select(m => m.Content))}");
+```
+
+This approach avoids having to handle polymorphic serialization directly within the serialization process, by relying on a concrete implementation for the interface. The custom JSON converter ensures that the complex nested structure of `AiRequest` is handled correctly.
