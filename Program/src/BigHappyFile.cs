@@ -12,6 +12,7 @@ public class PromptManager
         AiRequest request = PreparePrompt(aiModel, prompt);
         IAiResponse response = SubmitPrompt(aiModel, request);
         SaveResponse(promptNumber, response);
+        WritePromptSummary(promptNumber, request, response);
         PrintCost(aiModel, response);
     }
 
@@ -63,6 +64,14 @@ public class PromptManager
         string completion = response.GetMessage().Content;
         string nameAndExt = ProgramFiles.FormatOutputName(promptNumber);
         Utils.WriteFile(ProgramPaths.Archive, nameAndExt, completion);
+    }
+
+    private static void WritePromptSummary(long promptNumber, AiRequest request, IAiResponse response)
+    {
+        AiPromptSummary summary = new(request, response);
+        string summaryJson = summary.ToJson();
+        string nameAndExt = ProgramFiles.FormatMetadataName(promptNumber);
+        Utils.WriteFile(ProgramPaths.Archive, nameAndExt, summaryJson);
     }
 
     private static void PrintCost(IAiModel aiModel, IAiResponse response)
@@ -157,12 +166,35 @@ public interface IAiModel
     DateTime TrainingCutoff { get; }
 }
 
+public class AiEmptyModel : IAiModel
+{
+    public string ModelName { get; } = string.Empty;
+    public string DisplayName { get; } = string.Empty;
+    public IApiAccess ApiAccess { get; } = new ApiAccessEmpty();
+    public int ContextWindow { get; }
+    public int MaxOutputTokens { get; }
+    public double InputPricePerMTokensInUSD { get; }
+    public double OutputPricePerMTokensInUSD { get; }
+    public DateTime TrainingCutoff { get; }
+}
+
 public interface IApiAccess
 {
     string Endpoint { get; }
     string ApiKey { get; }
     ChatRoles ChatRoles { get; }
     IAiResponse RequestChatCompletion(AiRequest request);
+}
+
+public class ApiAccessEmpty : IApiAccess
+{
+    public string Endpoint { get; } = string.Empty;
+    public string ApiKey { get; } = string.Empty;
+    public ChatRoles ChatRoles { get; } = new(string.Empty, string.Empty, string.Empty);
+    public IAiResponse RequestChatCompletion(AiRequest request)
+    {
+        return new AiErrorResponse(string.Empty);
+    }
 }
 
 public class ChatRoles(string user, string assistant, string system)
@@ -200,6 +232,62 @@ public static class ApiAccessUtils
             max_tokens = req.MaxOutputTokens,
             stream = req.Stream,
             temperature = req.Temperature
+        };
+        return JsonSerializer.Serialize(requestBody);
+    }
+}
+
+public class AiPromptSummary(AiRequest req, IAiResponse response)
+{
+    // Properties initialized via constructor syntax
+    public string Model { get; set; } = response.GetModel();
+    public string Id { get; set; } = response.GetId();
+    public string RequestType { get; set; } = response.GetRequestType();
+    public string StopReason { get; set; } = response.GetStopReason();
+    public string TimeCreated { get; set; } = response.GetTimeCreated();
+    public int InputTokens { get; set; } = response.GetInputTokens();
+    public int OutputTokens { get; set; } = response.GetOutputTokens();
+    public int MaxTokens { get; set; } = req.MaxOutputTokens;
+    public double Temperature { get; set; } = req.Temperature;
+    public bool Stream { get; set; } = req.Stream;
+
+    public static AiPromptSummary CreateEmpty()
+    {
+        IAiModel model = new AiEmptyModel();
+        AiRequest req = new(model);
+        IAiResponse response = new AiErrorResponse(string.Empty);
+        return new(req, response);
+    }
+
+    // Method to convert the object to JSON string
+    public string ToJson()
+    {
+        return JsonSerializer.Serialize(this);
+    }
+
+    // Method to create an object from JSON string
+    public static AiPromptSummary FromJson(string json)
+    {
+        return JsonSerializer.Deserialize<AiPromptSummary>(json) ?? CreateEmpty();
+    }
+}
+
+public static class AiReqAndResponse
+{
+    public static string FormatJsonSummary(AiRequest req, IAiResponse response)
+    {
+        var requestBody = new
+        {
+            model = response.GetModel(),
+            id = response.GetId(),
+            request_type = response.GetRequestType(),
+            stop_reason = response.GetStopReason(),
+            time_created = response.GetTimeCreated(),
+            input_tokens = response.GetInputTokens(),
+            output_tokens = response.GetOutputTokens(),
+            max_tokens = req.MaxOutputTokens,
+            temperature = req.Temperature,
+            stream = req.Stream,
         };
         return JsonSerializer.Serialize(requestBody);
     }

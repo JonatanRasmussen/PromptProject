@@ -51,6 +51,12 @@ public class ProgramFiles
         string extension = ".md";
         return $"{promptNumber}_1{extension}";
     }
+
+    public static string FormatMetadataName(long promptNumber)
+    {
+        string extension = ".json";
+        return $"{promptNumber}_0x{extension}";
+    }
 }
 
 public class MyLocalConfigs
