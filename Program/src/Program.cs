@@ -9,18 +9,13 @@ public class Program
 
     public static void Main(string[] args)
     {
-
-        /* LocalDirectory root = LocalDirectory.CreateWithSrcFolderAsRoot();
-        root.PrintContent();
-        string dirContent = root.DirContentToString();
-        Console.WriteLine(dirContent);
-        Console.WriteLine(dirContent.Length); */
-        PromptManager.ExecutePromptPipeline(new OpenAI.Gpt4o());
-/*         PromptManager.ExecutePrompt(new OpenAI.Gpt4Turbo());
-        PromptManager.ExecutePrompt(new OpenAI.Gpt35Turbo());
-        PromptManager.ExecutePrompt(new Anthropic.Claude3Haiku());
-        PromptManager.ExecutePrompt(new Anthropic.Claude3Sonnet());
-        PromptManager.ExecutePrompt(new Anthropic.Claude3Opus()); */
+        bool includeSrcCode = true;
+        PromptManager.ExecutePromptPipeline(new OpenAI.Gpt4o(), includeSrcCode);
+/*         PromptManager.ExecutePromptPipeline(new OpenAI.Gpt4Turbo(), includeSrcCode);
+        PromptManager.ExecutePromptPipeline(new OpenAI.Gpt35Turbo(), includeSrcCode);
+        PromptManager.ExecutePromptPipeline(new Anthropic.Claude3Haiku(), includeSrcCode);
+        PromptManager.ExecutePromptPipeline(new Anthropic.Claude3Sonnet(), includeSrcCode);
+        PromptManager.ExecutePromptPipeline(new Anthropic.Claude3Opus(), includeSrcCode); */
     }
 }
 
@@ -62,8 +57,8 @@ public class ProgramFiles
 public class MyLocalConfigs
 {
     public static readonly string AbsolutePath = @"C:\Users\BudoB\OneDrive\Dokumenter Tekst\Programmering\PromptProject\Program\";
-    public static readonly string ApiKeyAnthropic = Utils.ReadFile(ProgramPaths.Xkeys, "apikey_anthropic.txt");
-    public static readonly string ApiKeyOpenAI = Utils.ReadFile(ProgramPaths.Xkeys, "apikey_openai.txt");
+    public static readonly string ApiKeyAnthropic = UtilsForIO.ReadFile(ProgramPaths.Xkeys, "apikey_anthropic.txt");
+    public static readonly string ApiKeyOpenAI = UtilsForIO.ReadFile(ProgramPaths.Xkeys, "apikey_openai.txt");
     public static readonly string InputFullFileName = "prompt.txt";
     public static readonly string OutputFullFileName = "response.md";
 }

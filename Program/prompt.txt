@@ -1,1 +1,3 @@
-Hello this is a test. Please reply that the weather is nice today.
+In the following code, help me make the class 'PromptManager' non-static.
+Also, instead of passing around promptNumber, prompt, request, response and aiModel, I think these would be better as class properties.
+Comment on whether or not you think this is a good approach, but do it anyway.

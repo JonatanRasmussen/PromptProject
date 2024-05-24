@@ -18,14 +18,14 @@ public class LocalDirectory(string name, string fullPath, LocalDirectory? parent
         public string Content { get; } = content;
     }
 
-    public static LocalDirectory CreateWithSrcFolderAsRoot()
+    public static string SrcCodeToString()
     {
         LocalDirectory? parent = null;
         string path = ProgramPaths.Src;
         string name = Path.GetDirectoryName(path) ?? "BudoMissing";
         LocalDirectory srcDir = new(name, path, parent);
         srcDir.LoadContent();
-        return srcDir;
+        return srcDir.DirContentToString();
     }
 
     public void PrintContent()
