@@ -2,6 +2,12 @@ namespace GlobalNameSpace;
 
 public static class OpenAI
 {
+    public static async Task RequestChatCompletionStream(AiRequest request)
+    {
+        ChatGPTApiAccess apiAccess = new();
+        await apiAccess.RequestChatCompletionStream(request);
+    }
+
     private class ChatGPTApiAccess : IApiAccess
     {
         // https://platform.openai.com/docs/api-reference/chat
@@ -16,6 +22,15 @@ public static class OpenAI
                 new ("Authorization", "Bearer " + ApiKey),
             ];
             return ApiAccessUtils.CallAPI<ChatGPTChatCompletion>(Endpoint, headerData, request);
+        }
+
+        public async Task RequestChatCompletionStream(AiRequest request)
+        {
+            List<Tuple<string, string>> headerData =
+            [
+                new ("Authorization", "Bearer " + ApiKey),
+            ];
+            await ApiAccessUtils.StreamAPIAsync(Endpoint, headerData, request);
         }
     }
 

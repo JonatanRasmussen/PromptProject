@@ -15,6 +15,8 @@ public class AiMetadata(AiRequest req, IAiResponse response)
     public int MaxTokens { get; set; } = req.MaxOutputTokens;
     public double Temperature { get; set; } = req.Temperature;
     public bool Stream { get; set; } = req.Stream;
+    public double InputPriceInUSD { get; set; } = InputCost(response.GetInputTokens(), req.Model);
+    public double OutputPriceInUSD { get; set; } = OutputCost(response.GetOutputTokens(), req.Model);
 
     public static AiMetadata CreateEmpty()
     {
@@ -34,6 +36,16 @@ public class AiMetadata(AiRequest req, IAiResponse response)
     public static AiMetadata FromJson(string json)
     {
         return JsonSerializer.Deserialize<AiMetadata>(json) ?? CreateEmpty();
+    }
+
+    private static double InputCost(int tokens, IAiModel model)
+    {
+        return PromptCostCalculator.CalculateCost(tokens, model.InputPricePerMTokensInUSD);
+    }
+
+    private static double OutputCost(int tokens, IAiModel model)
+    {
+        return PromptCostCalculator.CalculateCost(tokens, model.InputPricePerMTokensInUSD);
     }
 }
 

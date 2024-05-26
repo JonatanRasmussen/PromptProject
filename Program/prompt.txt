@@ -1,3 +1,1 @@
-In the following code, help me make the class 'PromptManager' non-static.
-Also, instead of passing around promptNumber, prompt, request, response and aiModel, I think these would be better as class properties.
-Comment on whether or not you think this is a good approach, but do it anyway.
+Hey this is a test.

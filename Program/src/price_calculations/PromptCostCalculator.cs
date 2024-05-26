@@ -22,15 +22,15 @@ public static class PromptCostCalculator
         return DisplayCost(inputCost, outputCost);
     }
 
+    public static double CalculateCost(int tokenCount, double pricePerMillionTokensInUSD)
+    {
+        return tokenCount / 1_000_000.0 * pricePerMillionTokensInUSD;
+    }
+
     private static string DisplayCost(double inputCost, double outputCost)
     {
         double totalCost = inputCost + outputCost;
         return $"Total cost: {FormatCost(inputCost)} + {FormatCost(outputCost)} = {FormatCost(totalCost)}";
-    }
-
-    private static double CalculateCost(int tokenCount, double pricePerMillionTokensInUSD)
-    {
-        return tokenCount / 1_000_000.0 * pricePerMillionTokensInUSD;
     }
 
     private static double EstimateCost(string text, double pricePerMillionTokensInUSD)

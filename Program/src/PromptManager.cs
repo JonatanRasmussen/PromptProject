@@ -2,29 +2,48 @@ using System.Text;
 using System.Text.Json;
 namespace GlobalNameSpace;
 
-public static class PromptManager
+public class PromptManager(IAiModel aiModel, bool includeSrcCode)
 {
-    public static void ExecutePromptPipeline(IAiModel aiModel, bool includeSrcCode)
+    public long PromptNumber { get; private set; }
+    public string Prompt { get; private set; } = string.Empty;
+    public AiRequest Request { get; private set; } = new(aiModel);
+    public IAiResponse Response { get; private set; } = new AiErrorResponse(string.Empty);
+    public IAiModel AiModel { get; } = aiModel;
+    public bool IncludeSrcCode { get; } = includeSrcCode;
+
+    public async Task Stream()
     {
-        long promptNumber = GeneratePromptNumber();
-        string prompt = LoadPrompt();
-        if (includeSrcCode)
+        Prompt = LoadPrompt();
+        Request = PreparePrompt();
+        try
         {
-            prompt = AppendSrcCodeToPrompt(prompt);
+            Request.Stream = true;
+            await OpenAI.RequestChatCompletionStream(Request);
         }
-        ArchivePrompt(promptNumber, prompt);
-        AiRequest request = PreparePrompt(aiModel, prompt);
-        IAiResponse response = SubmitPrompt(aiModel, request);
-        SaveAsResponseMd(response);
-        ArchiveResponse(promptNumber, response);
-        ArchiveMetadata(promptNumber, request, response);
-        PrintCost(aiModel, response);
+        catch (Exception ex)
+        {
+            Console.WriteLine("BudoError: " + ex.Message);
+        }
+    }
+
+    public void ExecutePromptPipeline()
+    {
+        PromptNumber = GeneratePromptNumber();
+        Prompt = LoadPrompt();
+        if (IncludeSrcCode)
+        {
+            AppendSrcCodeToPrompt();
+        }
+        ArchivePrompt();
+        Request = PreparePrompt();
+        Response = SubmitPrompt();
+        ArchiveResponse();
+        ArchiveMetadata();
+        PrintCost();
     }
 
     private static long GeneratePromptNumber()
     {
-        // Newer prompts should appear at the top when sorted alphabetically
-        // This is because my VSCode config just so happens to be setup this way
         DateTimeOffset currentTime = DateTimeOffset.UtcNow;
         long epochTimeSeconds = currentTime.ToUnixTimeSeconds();
         long numberToCountDownFrom = 10_000_000_000;
@@ -33,34 +52,33 @@ public static class PromptManager
 
     private static string LoadPrompt()
     {
-        return UtilsForIO.ReadFile(ProgramPaths.Prompt, ProgramFiles.Prompt);
+        return Utils.ReadFile(ProgramPaths.Prompt, ProgramFiles.Prompt);
     }
 
-    private static string AppendSrcCodeToPrompt(string prompt)
+    private void AppendSrcCodeToPrompt()
     {
         string fullSrcCode = LocalDirectory.SrcCodeToString();
-        return $"{prompt}\n\n{fullSrcCode}";
+        Prompt = $"{Prompt}\n\n{fullSrcCode}";
     }
 
-    private static void ArchivePrompt(long promptNumber, string prompt)
+    private void ArchivePrompt()
     {
-        string nameAndExt = ProgramFiles.FormatInputName(promptNumber);
-        UtilsForIO.WriteFile(ProgramPaths.Archive, nameAndExt, prompt);
+        string nameAndExt = ProgramFiles.FormatInputName(PromptNumber);
+        Utils.WriteFile(ProgramPaths.Archive, nameAndExt, Prompt);
     }
 
-    private static AiRequest PreparePrompt(IAiModel aiModel, string prompt)
+    private AiRequest PreparePrompt()
     {
-        AiRequest aiRequest = new(aiModel);
-        aiRequest.AddUserMessage(prompt);
+        AiRequest aiRequest = new(AiModel);
+        aiRequest.AddUserMessage(Prompt);
         return aiRequest;
     }
 
-    private static IAiResponse SubmitPrompt(IAiModel aiModel, AiRequest request)
+    private IAiResponse SubmitPrompt()
     {
         try
         {
-            IAiResponse response = aiModel.ApiAccess.RequestChatCompletion(request);
-            //string response = aiResponse.GetMessage().Content;
+            IAiResponse response = AiModel.ApiAccess.RequestChatCompletion(Request);
             return response;
         }
         catch (Exception ex)
@@ -70,33 +88,26 @@ public static class PromptManager
         }
     }
 
-    private static void ArchiveResponse(long promptNumber, IAiResponse response)
+    private void ArchiveResponse()
     {
-        string completion = response.GetMessage().Content;
-        string nameAndExt = ProgramFiles.FormatOutputName(promptNumber);
-        UtilsForIO.WriteFile(ProgramPaths.Archive, nameAndExt, completion);
+        string completion = Response.GetMessage().Content;
+        string nameAndExt = ProgramFiles.FormatOutputName(PromptNumber);
+        Utils.WriteFile(ProgramPaths.Archive, nameAndExt, completion);
     }
 
-    private static void SaveAsResponseMd(IAiResponse response)
+    private void ArchiveMetadata()
     {
-        string completion = response.GetMessage().Content;
-        string nameAndExt = ProgramFiles.ResponseName;
-        UtilsForIO.WriteFile(ProgramPaths.Response, nameAndExt, completion);
-    }
-
-    private static void ArchiveMetadata(long promptNumber, AiRequest request, IAiResponse response)
-    {
-        AiMetadata summary = new(request, response);
+        AiMetadata summary = new(Request, Response);
         string summaryJson = summary.ToJson();
-        string nameAndExt = ProgramFiles.FormatMetadataName(promptNumber);
-        UtilsForIO.WriteFile(ProgramPaths.Archive, nameAndExt, summaryJson);
+        string nameAndExt = ProgramFiles.FormatMetadataName(PromptNumber);
+        Utils.WriteFile(ProgramPaths.Archive, nameAndExt, summaryJson);
     }
 
-    private static void PrintCost(IAiModel aiModel, IAiResponse response)
+    private void PrintCost()
     {
-        int inputTokens = response.GetInputTokens();
-        int outputTokens = response.GetOutputTokens();
-        string totalCost = PromptCostCalculator.GetCost(aiModel, inputTokens, outputTokens);
+        int inputTokens = Response.GetInputTokens();
+        int outputTokens = Response.GetOutputTokens();
+        string totalCost = PromptCostCalculator.GetCost(AiModel, inputTokens, outputTokens);
         Console.WriteLine(totalCost);
     }
 }

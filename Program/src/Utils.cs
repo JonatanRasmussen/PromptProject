@@ -2,7 +2,7 @@ using System.Text;
 using System.Text.Json;
 namespace GlobalNameSpace;
 
-public static class UtilsForIO
+public static class Utils
 {
     public static string ReadFile(string filePath, string fileNameAndExt)
     {
