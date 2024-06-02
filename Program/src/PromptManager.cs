@@ -37,6 +37,7 @@ public class PromptManager(IAiModel aiModel, bool includeSrcCode)
         ArchivePrompt();
         Request = PreparePrompt();
         Response = SubmitPrompt();
+        SaveResponse();
         ArchiveResponse();
         ArchiveMetadata();
         PrintCost();
@@ -86,6 +87,12 @@ public class PromptManager(IAiModel aiModel, bool includeSrcCode)
             Console.WriteLine("BudoError: " + ex.Message);
             return new AiErrorResponse(ex.Message);
         }
+    }
+
+    private void SaveResponse()
+    {
+        string completion = Response.GetMessage().Content;
+        Utils.WriteFile(ProgramPaths.Response, ProgramFiles.Response, completion);
     }
 
     private void ArchiveResponse()

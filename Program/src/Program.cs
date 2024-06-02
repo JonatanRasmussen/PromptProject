@@ -18,7 +18,7 @@ public class Program
         bool includeSrcCode = false;
         PromptManager promptManager = new(model, includeSrcCode);
         //await promptManager.Stream();
-        /* promptManager.ExecutePromptPipeline(); */
+        promptManager.ExecutePromptPipeline();
 /*         PromptManager.ExecutePromptPipeline(new OpenAI.Gpt4Turbo(), includeSrcCode);
         PromptManager.ExecutePromptPipeline(new OpenAI.Gpt35Turbo(), includeSrcCode);
         PromptManager.ExecutePromptPipeline(new Anthropic.Claude3Haiku(), includeSrcCode);
@@ -68,6 +68,7 @@ public class ProgramPaths
 {
     public static readonly string Root = MyLocalConfigs.AbsolutePath;
     public static readonly string Prompt = Root;
+    public static readonly string Response = Root;
     public static readonly string Src = Path.Combine(Root, "src");
     public static readonly string Xkeys = Path.Combine(Root, "xkeys");
     public static readonly string Userdata = Path.Combine(Root, "userdata");
@@ -77,6 +78,7 @@ public class ProgramPaths
 public class ProgramFiles
 {
     public static readonly string Prompt = "prompt.txt";
+    public static readonly string Response = "response.md";
 
     public static string FormatInputName(long promptNumber)
     {
